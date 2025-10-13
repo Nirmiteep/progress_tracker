@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Project Forecasting Dashboard - PowerGrid</title>
+  <style>
+    :root{
+      --bg:#f6f8fb;
+      --card:#ffffff;
+      --primary: #1f6feb; /* softer blue */
+      --accent: #ff6b4a;
+      --muted: #6b7280;
+      --glass: rgba(20,84,169,0.06);
+      --kpi-bg: #f6fbff;
+    }
+    *{box-sizing:border-box}
+    body {
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+      margin: 0; padding: 0; background: var(--bg);
+      color: #172131; -webkit-font-smoothing:antialiased;
+    }
+    header {
+      background: linear-gradient(90deg, #08263f 0%, #0b3a5a 100%);
+      color: #fff;
+      padding: 14px 20px;
+      text-align: center;
+      font-size: 1.25rem;
+      letter-spacing: 0.4px;
+      box-shadow: 0 2px 8px rgba(11,26,40,0.12);
+    }
+    main {
+      padding: 28px 20px;
+      max-width: 1160px;
+      margin: 20px auto;
+    }
+    section {
+      margin-bottom: 22px;
+      background: var(--card);
+      padding: 18px 20px;
+      border-radius: 12px;
+      box-shadow: 0 6px 18px rgba(12,22,44,0.06);
+      border: 1px solid rgba(15,31,64,0.03);
+    }
+    h2 { font-size:1.05rem; margin-bottom:10px; color:#0f2740 }
+    .input-row { display:flex; gap:14px; margin-bottom:10px; }
+    .input-col { flex:1 }
+    label { font-size:0.9rem; color:var(--muted); display:block; margin-bottom:6px }
+    input, select, textarea {
+      width:100%; padding:10px 12px; border-radius:8px; border:1px solid #e6eef8; font-size:0.95rem;
+      background: linear-gradient(180deg,#fff,#fbfdff);
+      transition: box-shadow .15s ease, border-color .15s ease;
+    }
+    input:focus, select:focus, textarea:focus{ outline:none; box-shadow: 0 6px 18px rgba(31,111,235,0.06); border-color:var(--primary) }
+    button { background:var(--primary); color:#fff; border:none; border-radius:8px; padding:9px 16px; font-size:0.95rem; cursor:pointer; box-shadow: 0 6px 14px rgba(31,111,235,0.08); transition: transform .06s ease, box-shadow .12s ease; }
+    button:hover{ transform: translateY(-1px) }
+    button.secondary{ background:transparent; color:#324153; border:1px solid #d8e6ff; box-shadow:none }
+    .dashboard-stat { margin-bottom:10px; padding:14px; border-radius:10px; background: linear-gradient(180deg,#fbfdff,#f4f9ff); font-size:0.98rem; display:flex; flex-wrap:wrap; gap:18px; align-items:center }
+    .dashboard-stat > span{ margin-right:18px }
+    .warning { color:#b20d1e; background:#fff6f6; padding:10px 14px; border-radius:8px; margin:10px 0; display:inline-block; border:1px solid rgba(178,13,30,0.06) }
+    .chart-wrap { flex:1; min-width:260px; max-width:620px; height:240px; background:var(--glass); border-radius:10px; margin:14px 0; box-sizing:border-box; padding:10px; display:flex; flex-direction:column }
+    .chart-wrap canvas{ width:100% !important; height:100% !important; display:block }
+    table{ border-collapse:collapse; width:100%; margin:12px 0; font-size:0.95rem }
+    th, td{ padding:9px 10px; border-bottom:1px solid #eef4fb }
+    th { text-align:left; color:#385472; font-weight:600; background:transparent }
+    .flex-row { display:flex; gap:20px; flex-wrap:wrap; align-items:flex-start }
+    .hidden{ display:none }
+    .controls-row{ margin-top:10px; display:flex; gap:12px; flex-wrap:wrap }
+    .chart-legend{ display:flex; gap:10px; flex-wrap:wrap; margin-top:8px; align-items:center }
+  .chart-legend .item{ display:flex; gap:8px; align-items:center; cursor:pointer; -webkit-user-select:none; user-select:none }
+    .chart-legend .swatch{ width:14px; height:10px; border-radius:3px; display:inline-block; background:var(--sw-bg,#777) }
+    /* Resource allocation */
+    .ra-row{ display:flex; gap:12px; flex-wrap:wrap }
+    .ra-col{ flex:1; min-width:240px }
+    .ra-controls{ display:flex; gap:8px; margin-bottom:8px }
+    .ra-small{ width:92px }
+    .ra-actions{ margin-top:12px; display:flex; gap:10px; flex-wrap:wrap }
+    .ra-title-space{ margin-top:14px }
+    .rev-actions{ margin-top:10px; display:flex; gap:10px }
+    .rev-chart-wrap{ margin-top:12px }
+    .rev-heading{ margin-top:12px }
+    .ms-row{ display:flex; gap:12px; flex-wrap:wrap }
+    .ms-col{ flex:1; min-width:220px }
+    .ms-controls{ display:flex; gap:8px; margin-bottom:8px }
+    .ms-table{ width:100%; border-collapse:collapse }
+    .ms-table th, .ms-table td{ padding:8px; border-bottom:1px solid #eef4fb }
+    .ms-progress{ width:100%; background:linear-gradient(90deg,#f3f8ff,#eef6ff); height:12px; border-radius:10px; overflow:hidden }
+    .ms-progress > span{ display:block; height:100%; background:var(--primary); width:0%; transition: width .4s ease }
+    .ms-complete{ background:#119c4a !important }
+    /* Analytics */
+    .analytics-grid{ display:grid; grid-template-columns: repeat(2, 1fr); gap:14px; align-items:start }
+    .analytics-card{ background:var(--card); border-radius:10px; padding:12px; border:1px solid rgba(15,31,64,0.03) }
+    .kpi-row{ display:flex; gap:12px; flex-wrap:wrap; align-items:stretch }
+    .kpi{ flex:1 1 0; min-width:130px; background:var(--kpi-bg); padding:12px; border-radius:8px; display:flex; flex-direction:column; justify-content:center; align-items:center }
+    .kpi .label{ font-size:0.85rem; color:var(--muted); margin-bottom:6px }
+    .kpi .value{ font-size:1.25rem; color:#07283f; font-weight:800 }
+    .analytics-chart-wrap{ height:260px; display:flex; align-items:center }
+    .analytics-grid{ margin-top:12px; grid-auto-rows: minmax(180px, auto) }
+    .analytics-card canvas{ width:100% !important; height:100% !important }
+    .analytics-updates{ max-height:220px; overflow:auto; font-size:0.95rem }
+    #notification-area{ position:fixed; right:18px; top:18px; z-index:1200; display:flex; flex-direction:column; gap:10px }
+    .notify{ min-width:260px; max-width:420px; background:#fff; border-left:6px solid var(--primary); padding:10px 12px; box-shadow:0 10px 30px rgba(11,26,40,0.08); border-radius:8px; font-size:0.95rem }
+    .notify.critical{ border-left-color:#b20d1e; background:#fff6f6 }
+    .notify.success{ border-left-color:#119c4a; background:#f6fff7 }
+    .notify small{ display:block; color:#445; margin-top:6px; font-size:0.82rem }
+    .notify button{ float:right; background:transparent; border:none; color:#567; cursor:pointer; font-weight:700 }
+    .cost-kpis{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:8px }
+    .cost-kpi{ flex:1; min-width:140px; padding:10px; border-radius:8px; text-align:center }
+    .cost-kpi .label{ font-size:0.82rem; color:var(--muted) }
+    .cost-kpi .value{ font-weight:800; font-size:1.1rem }
+    .cost-kpi.budget{ background:linear-gradient(180deg,#f8fbff,#f3f8ff); color:#0f3a62 }
+    .cost-kpi.actual{ background:linear-gradient(180deg,#fff6f6,#fff8f8); color:#b20d1e }
+    .cost-kpi.cpi{ background:linear-gradient(180deg,#f6fff7,#ecfff2); color:#0b6b3a }
+    .cost-kpi.var{ background:linear-gradient(180deg,#fffaf0,#fff9f2); color:#103a6a }
+    .cost-kpi.roi{ background:linear-gradient(180deg,#f3f8ff,#eef6ff); color:#103a6a }
+    .cost-kpi.util{ background:linear-gradient(180deg,#eef4fd,#f7fbff); color:#103a6a }
+    .cost-chart-wrap{ height:160px }
+    .time-log-heading{ margin-top:14px }
+    .time-log-list{ margin-top:8px; font-size:0.95rem; max-height:160px; overflow:auto }
+    .time-metrics-summary{ margin-top:10px; font-size:0.95rem; color:#233 }
+    .stake-controls{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px }
+    .stake-controls-center{ align-items:center }
+    .stake-chart-wrap{ height:160px }
+    .ml-6{ margin-left:6px !important }
+    .ml-8{ margin-left:8px !important }
+    .swatch.dim{ opacity:0.28 !important }
+    .controls-group{ margin-top:10px }
+    .ms-progress > span{ width: var(--pct, 0%); transition: width .45s cubic-bezier(.2,.8,.2,1) }
+  </style>
+
+  <!-- Mobile-friendly adjustments -->
+  <style>
+    @media (max-width: 600px) {
+      body { padding: 8px; }
+      main { padding: 12px; }
+      .input-row { flex-direction: column; gap: 8px; }
+      .flex-row { gap: 12px; }
+      .chart-wrap { min-width: 100%; max-width: 100%; height: 200px; }
+      .dashboard-stat { font-size: 1em; padding: 10px; }
+      button, input, select, textarea { font-size: 16px; padding: 12px 14px; }
+      button { border-radius: 8px; }
+      .controls-row { gap: 10px; }
+      .chart-wrap { padding: 6px; }
+      header { font-size: 1.2em; padding: 12px; }
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+<header>PowerGrid AI Project Forecasting Dashboard</header>
+<main>
+  <!-- Notifications area (toasts/banners) -->
+  <div id="notification-area" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Project Initialization -->
+  <section>
+    <h2>New Project Input</h2>
+    <form id="project-form">
+      <div class="input-row">
+        <div class="input-col">
+          <label>Project Name</label>
+          <input required type="text" id="projectName" title="Project name" placeholder="e.g. Rural Grid Upgrade">
+        </div>
+        <div class="input-col">
+          <label>Project Type</label>
+          <input required type="text" id="projectType" title="Project type" placeholder="e.g. Transmission/Distribution">
+        </div>
+        <div class="input-col">
+          <label>Region</label>
+          <input required type="text" id="region" title="Project region" placeholder="e.g. Rajasthan">
+        </div>
+      </div>
+      <div class="input-row">
+        <div class="input-col">
+          <label>Terrain</label>
+          <input type="text" id="terrain" title="Terrain type" placeholder="e.g. Hilly / Plain">
+        </div>
+        <div class="input-col">
+          <label>Labor Strength</label>
+          <input type="number" id="labor" min="1" title="Labor strength (approx)" placeholder="e.g. 20">
+        </div>
+        <div class="input-col">
+          <label>Vendor Reliability (1-10)</label>
+          <input type="number" id="vendorReliability" min="1" max="10" title="Vendor reliability (1-10)" placeholder="7">
+        </div>
+      </div>
+      <div class="input-row">
+        <div class="input-col">
+          <label>Planned Cost (in Lakhs ₹)</label>
+          <input required type="number" id="plannedCost" min="0" title="Planned cost in Lakhs" placeholder="e.g. 250">
+        </div>
+        <div class="input-col">
+          <label>Planned Duration (months)</label>
+          <input type="number" id="plannedDuration" min="1" title="Planned duration in months" placeholder="e.g. 12">
+        </div>
+        <div class="input-col">
+          <label>Typical Weather Risks</label>
+          <input type="text" id="weather" title="Typical weather risks" placeholder="e.g. Monsoon heavy">
+        </div>
+      </div>
+      <button type="submit">Create Project</button>
+    </form>
+  </section>
+
+  <!-- Resource Utilization removed -->
+
+  <!-- Product Portfolio removed -->
+
+  <!-- Reporting & Analytics -->
+  <section id="analytics-section">
+    <h2>Reporting & Analytics</h2>
+    <div class="kpi-row">
+      <div class="kpi"><div class="label">Active Project</div><div id="kpiProject" class="value">-</div></div>
+      <div class="kpi"><div class="label">Overall Progress</div><div id="kpiProgress" class="value">-</div></div>
+      <div class="kpi"><div class="label">Forecast Confidence</div><div id="kpiConfidence" class="value">-</div></div>
+    </div>
+  <div class="analytics-grid">
+      <div class="analytics-card">
+        <h3>Progress & Forecast</h3>
+        <div class="analytics-chart-wrap"><canvas id="analyticsProgress"></canvas></div>
+      </div>
+      <div class="analytics-card">
+        <h3>Revenue vs Recognized</h3>
+        <div class="analytics-chart-wrap"><canvas id="analyticsRevenue"></canvas></div>
+      </div>
+      <!-- Resource Utilization removed from analytics -->
+      <div class="analytics-card">
+        <h3>Recent Updates</h3>
+  <div id="analyticsUpdates" class="analytics-updates"></div>
+        <div id="timeMetricsSummary" class="time-metrics-summary"></div>
+      </div>
+      <div class="analytics-card">
+        <h3>Cost Management</h3>
+        <div class="cost-kpis">
+          <div class="cost-kpi budget"><div class="label">Budget (L)</div><div id="costBudget" class="value">-</div></div>
+          <div class="cost-kpi actual"><div class="label">Actual Cost (L)</div><div id="costActual" class="value">-</div></div>
+          <div class="cost-kpi cpi"><div class="label">CPI</div><div id="costCPI" class="value">-</div></div>
+        </div>
+        <div class="cost-kpis">
+          <div class="cost-kpi var"><div class="label">Cost Variance (L)</div><div id="costVariance" class="value">-</div></div>
+          <div class="cost-kpi roi"><div class="label">ROI (%)</div><div id="costROI" class="value">-</div></div>
+          <div class="cost-kpi util"><div class="label">Utilization</div><div id="costUtil" class="value">-</div></div>
+        </div>
+        <div class="cost-chart-wrap"><canvas id="costMgmtChart"></canvas></div>
+      </div>
+      <div class="analytics-card">
+        <h3>Stakeholder Metrics</h3>
+        <div class="stake-controls">
+          <input id="custName" placeholder="Customer name">
+          <select id="custSeg" title="Customer segment"><option value="retail">Retail</option><option value="enterprise">Enterprise</option></select>
+          <button id="addCustomer">Add</button>
+        </div>
+        <div class="stake-controls stake-controls-center">
+          <select id="fbCustomer" title="Select customer for feedback"><option value="">--Select customer--</option></select>
+          <label>CSAT <input id="fbCSAT" type="number" min="1" max="5" value="5"></label>
+          <label>NPS <input id="fbNPS" type="number" min="0" max="10" value="5" title="0-10 scale (0=detractor, 10=promoter)"></label>
+          <button id="submitFeedback">Submit</button>
+        </div>
+        <div class="stake-controls">
+          <div class="cost-kpi budget"><div class="label">CSAT</div><div id="kpCSAT" class="value">-</div></div>
+          <div class="cost-kpi actual"><div class="label">NPS</div><div id="kpNPS" class="value">-</div></div>
+          <div class="cost-kpi cpi"><div class="label">Engagement</div><div id="kpEngage" class="value">-</div></div>
+        </div>
+        <div class="stake-chart-wrap"><canvas id="npsChart"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Revenue Recognition -->
+  <section>
+    <h2>Revenue Recognition</h2>
+    <div class="input-row">
+      <div class="input-col">
+        <label>Invoice/Entry Date</label>
+        <input type="date" id="revDate" title="Entry date" placeholder="YYYY-MM-DD">
+      </div>
+      <div class="input-col">
+        <label>Amount (Lakhs ₹)</label>
+        <input type="number" id="revAmount" min="0" step="0.01" placeholder="e.g. 12.50">
+      </div>
+      <div class="input-col">
+        <label>Type</label>
+        <select id="revType" title="Recognition type"><option value="billed">Billed</option><option value="recognized">Recognized</option></select>
+      </div>
+    </div>
+    <div class="rev-actions">
+      <button id="addRevenue">Add Entry</button>
+      <button id="exportRevCSV">Export Revenue CSV</button>
+    </div>
+    <h3 class="rev-heading">Summary</h3>
+    <div class="dashboard-stat" id="revSummary">No revenue data yet.</div>
+    <div class="rev-chart-wrap">
+      <canvas id="revChart"></canvas>
+    </div>
+    <h3 class="rev-heading">Entries</h3>
+    <table id="revTable"><thead><tr><th>Date</th><th>Amount (L)</th><th>Type</th><th></th></tr></thead><tbody></tbody></table>
+  </section>
+
+  <!-- Milestones Tracker -->
+  <section>
+    <h2>Milestones Tracker</h2>
+    <div class="ms-row">
+      <div class="ms-col">
+        <h3>Create Milestone</h3>
+        <div class="ms-controls">
+          <input id="msName" placeholder="Phase name">
+          <input id="msDue" type="date" title="Due date" placeholder="YYYY-MM-DD">
+          <button id="addMs">Add</button>
+        </div>
+        <h3>Overview</h3>
+        <div class="ms-progress" id="msProgress"><span></span></div>
+      </div>
+      <div class="ms-col">
+        <h3>Milestones</h3>
+        <table class="ms-table" id="msTable"><thead><tr><th>Milestone</th><th>Due</th><th>Status</th><th></th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // -------- Milestones JS --------
+    const LS_MS = 'pg_milestones_v1';
+    let milestones = [];
+
+    function saveMs(){ localStorage.setItem(LS_MS, JSON.stringify(milestones)); }
+    function loadMs(){ const v = localStorage.getItem(LS_MS); if (v) milestones = JSON.parse(v); renderMs(); }
+
+    function renderMs(){
+      const tbody = document.querySelector('#msTable tbody'); tbody.innerHTML = '';
+      milestones.forEach((m, idx)=>{
+        const tr = document.createElement('tr');
+        const td1 = document.createElement('td'); td1.innerText = m.name;
+        const td2 = document.createElement('td'); td2.innerText = m.due;
+        const td3 = document.createElement('td'); td3.innerText = m.done ? 'Complete' : 'Pending';
+        const td4 = document.createElement('td');
+        const btnToggle = document.createElement('button'); btnToggle.innerText = m.done ? 'Undo' : 'Complete'; btnToggle.onclick = ()=>{ m.done = !m.done; saveMs(); renderMs(); };
+  const btnDel = document.createElement('button'); btnDel.innerText = 'Delete'; btnDel.classList.add('ml-6'); btnDel.onclick = ()=>{ milestones.splice(idx,1); saveMs(); renderMs(); };
+        td4.appendChild(btnToggle); td4.appendChild(btnDel);
+        tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3); tr.appendChild(td4);
+        tbody.appendChild(tr);
+      });
+      // update progress bar
+      const total = milestones.length || 1;
+      const done = milestones.filter(m=>m.done).length;
+      const pct = Math.round((done/total)*100);
+  const bar = document.querySelector('#msProgress span'); if (bar) bar.style.setProperty('--pct', pct + '%');
+      if (pct >= 100) bar.classList.add('ms-complete'); else bar.classList.remove('ms-complete');
+    }
+
+    function addMilestone(){ const name = document.getElementById('msName').value.trim(); const due = document.getElementById('msDue').value || (new Date()).toISOString().slice(0,10); if(!name) return alert('Enter milestone name'); milestones.push({ name, due, done:false }); saveMs(); renderMs(); document.getElementById('msName').value=''; document.getElementById('msDue').value=''; }
+
+    document.getElementById('addMs').addEventListener('click', addMilestone);
+    document.addEventListener('DOMContentLoaded', loadMs);
+  </script>
+
+  <!-- Resource Allocation -->
+    <section>
+    <h2>Resource Allocation</h2>
+    <div class="ra-row">
+      <div class="ra-col">
+        <h3>Team Members</h3>
+        <div class="ra-controls">
+          <input id="memberName" placeholder="Member name" title="Member name">
+          <input id="memberCap" class="ra-small" type="number" min="1" placeholder="Capacity">
+          <button id="addMember">Add</button>
+        </div>
+        <ul id="memberList"></ul>
+      </div>
+
+      <div class="ra-col">
+        <h3>Tasks</h3>
+        <div class="ra-controls">
+          <input id="taskName" placeholder="Task description">
+          <input id="taskEst" class="ra-small" type="number" min="0" placeholder="Est hrs" title="Estimated hours">
+          <select id="taskPriority" title="Task priority"><option value="low">Low</option><option value="med">Medium</option><option value="high">High</option></select>
+          <button id="addTask">Add</button>
+        </div>
+        <ul id="taskList"></ul>
+      </div>
+    </div>
+    <div class="ra-actions">
+      <button id="autoAssign">Auto-Assign Tasks</button>
+      <button id="clearAssignments" class="secondary">Clear Assignments</button>
+    </div>
+
+  <h3 class="time-log-heading">Log Time</h3>
+    <div class="ra-controls">
+      <select id="timeTaskSelect" title="Select task for time log"><option value="">-- Select task --</option></select>
+      <input id="timeHours" class="ra-small" type="number" min="0" step="0.25" placeholder="Hours">
+      <input id="timeDate" type="date" title="Date">
+      <input id="timeNote" placeholder="Note (optional)">
+      <button id="logTimeBtn">Log Time</button>
+    </div>
+  <div id="timeLogList" class="time-log-list"></div>
+
+    <h3 class="ra-title-space">Assignments</h3>
+    <table id="assignTable">
+      <thead><tr><th>Task</th><th>Priority</th><th>Assigned To</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <!-- Project Progress Updates -->
+  <section>
+    <h2>Progress Update Log</h2>
+  <form id="update-form" class="hidden">
+      <div class="input-row">
+        <div class="input-col">
+          <label>Update Date</label>
+          <input type="date" id="updateDate" title="Date of this progress update" placeholder="YYYY-MM-DD">
+        </div>
+        <div class="input-col">
+          <label>Progress (%)</label>
+          <input type="number" id="progressPercent" min="0" max="100" title="Percent complete" placeholder="e.g. 23">
+        </div>
+        <div class="input-col">
+          <label>Cost Spent (₹ Lakhs)</label>
+          <input type="number" id="costSpent" min="0" title="Cost spent so far in Lakhs" placeholder="e.g. 12.5">
+        </div>
+        <div class="input-col">
+          <label>Delays/Notes</label>
+          <input type="text" id="delayNotes" title="Any notes or delay reasons" placeholder="e.g. Supply delay">
+        </div>
+      </div>
+      <button type="submit">Add Update</button>
+    </form>
+    <div id="update-table-container"></div>
+  </section>
+
+  <!-- Live Dashboard -->
+  <section>
+    <h2>Live Dashboard & Forecast</h2>
+    <div class="dashboard-stat" id="stats">
+      No project active yet.
+    </div>
+    
+    <div class="warning hidden" id="warning">
+      Potential alert! See below for details.
+    </div>
+    <div class="flex-row">
+      <div class="chart-wrap">
+        <canvas id="progress-graph"></canvas>
+        <div class="chart-legend" id="legend-progress"></div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="cost-graph"></canvas>
+        <div class="chart-legend" id="legend-cost"></div>
+      </div>
+    </div>
+    <div class="controls-row">
+      <button class="secondary" onclick="exportReport()">Export Performance Report</button>
+      <button id="btnExportPDF" type="button">Export PDF</button>
+    </div>
+  <pre id="report-output" class="hidden"></pre>
+  </section>
+</main>
+
+<script>
+  // -------- DATA STATE & PERSISTENCE ---------
+  let project = null;
+  let updates = [];
+  let charts = { progress: null, cost: null, variance: null };
+
+  const LS_KEY_PROJECT = 'pg_project_v1';
+  const LS_KEY_UPDATES = 'pg_updates_v1';
+
+  // ------ FORM SUBMISSIONS -----
+  document.getElementById('project-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    project = {
+      name: document.getElementById('projectName').value,
+      type: document.getElementById('projectType').value,
+      region: document.getElementById('region').value,
+      terrain: document.getElementById('terrain').value,
+      labor: +document.getElementById('labor').value || 1,
+      vendorReliability: +document.getElementById('vendorReliability').value || 5,
+      plannedCost: +document.getElementById('plannedCost').value || 0,
+      plannedDuration: +document.getElementById('plannedDuration').value || 1,
+      weather: document.getElementById('weather').value,
+      createdAt: (new Date()).toISOString()
+    };
+    updates = [];
+    saveState();
+    // show update form
+    document.getElementById('update-form').classList.remove('hidden');
+    displayStats();
+    renderUpdateTable();
+    document.getElementById('report-output').classList.add('hidden');
+  });
+
+  document.getElementById('update-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const date = document.getElementById('updateDate').value || (new Date()).toISOString().slice(0,10);
+    const progress = +document.getElementById('progressPercent').value || 0;
+    const costSpent = +document.getElementById('costSpent').value || 0;
+    const notes = document.getElementById('delayNotes').value || '';
+    updates.push({ date, progress, costSpent, notes });
+    saveState();
+    displayStats();
+    renderUpdateTable();
+    // clear update inputs for next entry
+    document.getElementById('updateDate').value = '';
+    document.getElementById('progressPercent').value = '';
+    document.getElementById('costSpent').value = '';
+    document.getElementById('delayNotes').value = '';
+  });
+
+  // Load/Save
+  function saveState(){
+    if (project) localStorage.setItem(LS_KEY_PROJECT, JSON.stringify(project));
+    localStorage.setItem(LS_KEY_UPDATES, JSON.stringify(updates));
+  }
+  function loadState(){
+    const p = localStorage.getItem(LS_KEY_PROJECT);
+    const u = localStorage.getItem(LS_KEY_UPDATES);
+    if (p) project = JSON.parse(p);
+    if (u) updates = JSON.parse(u);
+    if (project) {
+      // populate form fields so user sees saved project
+      try {
+        document.getElementById('projectName').value = project.name || '';
+        document.getElementById('projectType').value = project.type || '';
+        document.getElementById('region').value = project.region || '';
+        document.getElementById('terrain').value = project.terrain || '';
+        document.getElementById('labor').value = project.labor || '';
+        document.getElementById('vendorReliability').value = project.vendorReliability || '';
+        document.getElementById('plannedCost').value = project.plannedCost || '';
+        document.getElementById('plannedDuration').value = project.plannedDuration || '';
+        document.getElementById('weather').value = project.weather || '';
+      } catch (err) {
+        // ignore if elements not present
+      }
+      document.getElementById('update-form').classList.remove('hidden');
+    }
+  }
+
+  // ------- FORECASTING / DASHBOARD LOGIC -------
+  // Very simple ML-like heuristics: linear regression on progress over time + cost-per-progress
+  function computeForecast(){
+    if (!project) return null;
+    if (!updates.length) {
+      return {
+        forecastDuration: project.plannedDuration,
+        forecastCost: project.plannedCost,
+        confidence: 50,
+        deltaTime: 0,
+        deltaCost: 0
+      };
+    }
+
+    // Build arrays of x=time (in days from first update) and y=progress
+    const parse = d => new Date(d + 'T00:00:00');
+    const first = parse(updates[0].date);
+    const xs = updates.map(u => (parse(u.date) - first) / (1000*60*60*24)); // days
+    const ys = updates.map(u => u.progress);
+
+    // Estimate velocity (percent/day). Use exponential smoothing to stabilize noisy updates.
+    // Compute raw velocities between consecutive updates
+    const vel = [];
+    for (let i=1;i<updates.length;i++){
+      const dt = xs[i] - xs[i-1] || 1; // days
+      const dv = (ys[i] - ys[i-1]) / dt;
+      vel.push(dv);
+    }
+    // Exponential smoothing (alpha): give more weight to recent velocities
+    const alpha = 0.6;
+    let smooth = vel.length ? vel[0] : 0.5; // initial
+    for (let v of vel) smooth = alpha * v + (1-alpha) * smooth;
+
+    const last = updates[updates.length-1];
+    const currentProgress = last.progress || 0;
+    const daysToFinish = smooth > 0 ? (100 - currentProgress) / smooth : Infinity;
+    // Convert daysToFinish to months (approx)
+    const forecastDurationMonths = Math.max(1, Math.round((daysToFinish/30) + ( (xs[xs.length-1]/30) ) ));
+
+    // Cost forecast: compute cost per percent from cumulative costs
+    const totalCost = updates.reduce((a,b)=>a + (b.costSpent||0), 0);
+    const costPerPercent = currentProgress > 0 ? totalCost / currentProgress : project.plannedCost / 100;
+    const forecastCost = Math.round((costPerPercent * 100));
+
+  // Confidence based on number of updates, vendor reliability and velocity stability
+  const vendorFactor = (project.vendorReliability || 5) / 10;
+  const updateFactor = Math.min(1, updates.length / 5);
+  const velStd = vel.length ? Math.sqrt(vel.map(v=>Math.pow(v-smooth,2)).reduce((a,b)=>a+b,0)/vel.length) : 0;
+  const stability = 1 / (1 + velStd);
+  const confidence = Math.round(80 * vendorFactor * updateFactor * stability + 10);
+
+    const deltaTime = forecastDurationMonths - project.plannedDuration;
+    const deltaCost = forecastCost - project.plannedCost;
+
+    return {
+      forecastDuration: forecastDurationMonths,
+      forecastCost,
+      confidence,
+      deltaTime,
+      deltaCost
+    };
+  }
+
+  // -------- PDF export (client-side using jsPDF) --------
+  async function exportPDF(){
+    if (!project) return alert('No project to export');
+    // Ensure report text is generated
+    exportReport();
+    const text = document.getElementById('report-output').innerText;
+    // Use jsPDF
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const margin = 40;
+    const lineHeight = 12;
+    const lines = doc.splitTextToSize(text, 520);
+    doc.setFontSize(11);
+    doc.text(lines, margin, margin);
+    const fname = `${project.name || 'project'}_report.pdf`;
+    doc.save(fname);
+  }
+
+  function displayStats() {
+    const stats = document.getElementById('stats');
+    if (!project) {
+      stats.innerHTML = 'No project active yet.';
+      return;
+    }
+    const lastUpdate = updates.length ? updates[updates.length-1] : {progress:0, costSpent:0};
+    const forecast = computeForecast();
+    const proj = lastUpdate.progress || 0;
+    const costUsed = updates.reduce((a,b)=>a + (b.costSpent||0), 0);
+
+    stats.innerHTML = `
+      <span><strong>Project:</strong> ${project.name}</span>
+      <span><strong>Type:</strong> ${project.type}</span>
+      <span><strong>Region:</strong> ${project.region}</span>
+      <span><strong>Planned Cost:</strong> ₹${project.plannedCost}L</span>
+      <span><strong>Planned Duration:</strong> ${project.plannedDuration} months</span>
+      <br>
+      <span><strong>Current Progress:</strong> ${proj}%</span>
+      <span><strong>Cost Spent:</strong> ₹${costUsed}L</span>
+      <span><strong>Revised Forecast:</strong> ₹${forecast.forecastCost}L, ${forecast.forecastDuration} months</span>
+      <span><strong>Confidence:</strong> ${forecast.confidence}%</span>
+      <span><strong>Variance:</strong> Cost ${forecast.deltaCost >= 0 ? '+' : ''}${forecast.deltaCost}L, Time ${forecast.deltaTime >= 0 ? '+' : ''}${forecast.deltaTime}mo</span>
+    `;
+
+    const warn = document.getElementById('warning');
+    // Warning thresholds: 10% cost overrun or 15% time overrun, or low confidence
+    const costThreshold = project.plannedCost * 0.10;
+    const timeThreshold = Math.max(1, Math.round(project.plannedDuration * 0.15));
+    if (forecast.deltaCost > costThreshold || forecast.deltaTime > timeThreshold || forecast.confidence < 40) {
+      warn.classList.remove('hidden');
+      warn.innerText = `Warning: Project at risk — Cost variance ${forecast.deltaCost}L, Time variance ${forecast.deltaTime}mo, Confidence ${forecast.confidence}%`;
+    } else {
+      warn.classList.add('hidden');
+    }
+
+    drawCharts();
+  }
+
+  // ------- PROGRESS TABLE -------
+  function renderUpdateTable() {
+    let area = document.getElementById('update-table-container');
+    if (!updates.length) {
+      area.innerHTML = '<em>No updates logged yet.</em>';
+      return;
+    }
+    let html = `<table>
+      <tr>
+        <th>Date</th>
+        <th>Progress (%)</th>
+        <th>Cost Spent (₹ Lakh)</th>
+        <th>Delay/Notes</th>
+      </tr>`;
+    updates.forEach(u => {
+      html += `<tr>
+        <td>${u.date}</td>
+        <td>${u.progress}</td>
+        <td>${u.costSpent}</td>
+        <td>${u.notes}</td>
+      </tr>`;
+    });
+    html += '</table>';
+    area.innerHTML = html;
+  }
+
+  // -------- CHARTS with Chart.js -------
+  function initCharts(){
+    const ctxP = document.getElementById('progress-graph').getContext('2d');
+    const ctxC = document.getElementById('cost-graph').getContext('2d');
+    // Progress chart
+    charts.progress = new Chart(ctxP, {
+      type: 'line',
+      data: { labels: [], datasets: [
+        { label: 'Planned %', data: [], borderColor: '#2E6FAC', borderDash: [6,4], fill:false },
+        { label: 'Actual %', data: [], borderColor: '#EF4A2A', fill:false }
+      ]},
+      options: { responsive: true, maintainAspectRatio:false, plugins: { legend: { display: false }, tooltip: { enabled: true } } }
+    });
+    // Cost chart
+    charts.cost = new Chart(ctxC, {
+      type: 'line',
+      data: { labels: [], datasets: [
+        { label: 'Planned Cost (L)', data: [], borderColor: '#2E6FAC', borderDash: [6,4], fill:false },
+        { label: 'Actual Cost (L)', data: [], borderColor: '#119c4a', fill:false }
+      ]},
+      options: { responsive: true, maintainAspectRatio:false, plugins: { legend: { display: false }, tooltip: { enabled: true } } }
+    });
+
+    // Build initial custom legends
+    buildLegend(charts.progress, document.getElementById('legend-progress'));
+    buildLegend(charts.cost, document.getElementById('legend-cost'));
+  }
+
+  function buildLegend(chart, container){
+    if (!chart || !container) return;
+    container.innerHTML = '';
+    chart.data.datasets.forEach((ds, idx) => {
+      const item = document.createElement('div');
+      item.className = 'item';
+      const sw = document.createElement('span');
+      sw.className = 'swatch';
+  sw.style.setProperty('--sw-bg', ds.borderColor || '#000');
+  if (ds.hidden || meta && meta.hidden) sw.classList.add('dim'); else sw.classList.remove('dim');
+      const label = document.createElement('span');
+      label.innerText = ds.label || `Series ${idx+1}`;
+      item.appendChild(sw);
+      item.appendChild(label);
+      item.onclick = () => {
+        const meta = chart.getDatasetMeta(idx);
+        meta.hidden = meta.hidden === null ? !chart.data.datasets[idx].hidden : null;
+        chart.toggleDataVisibility(idx);
+        chart.update();
+    if (meta.hidden) sw.classList.add('dim'); else sw.classList.remove('dim');
+      };
+      container.appendChild(item);
+    });
+  }
+
+  function drawCharts(){
+    if (!project) return;
+    if (!charts.progress) initCharts();
+    const labels = updates.map(u=>u.date);
+    // planned progression across plannedDuration months -> create labels if none
+    const months = Math.max(1, project.plannedDuration);
+    const plannedLabels = [];
+    const plannedProgress = [];
+    for (let i=0;i<months;i++){
+      plannedLabels.push(`M${i+1}`);
+      plannedProgress.push(Math.round(((i)/(months-1||1))*100));
+    }
+
+    charts.progress.data.labels = labels.length ? labels : plannedLabels;
+    charts.progress.data.datasets[0].data = labels.length ? labels.map((_,i)=>Math.round(((i)/(months-1||1))*100)) : plannedProgress;
+    charts.progress.data.datasets[1].data = updates.map(u=>u.progress);
+    charts.progress.update();
+
+    charts.cost.data.labels = labels.length ? labels : plannedLabels;
+    charts.cost.data.datasets[0].data = labels.length ? labels.map((_,i)=>Math.round(((i)/(months-1||1))*project.plannedCost)) : plannedLabels.map((_,i)=>Math.round(((i)/(months-1||1))*project.plannedCost));
+    charts.cost.data.datasets[1].data = updates.map(u=>u.costSpent);
+    charts.cost.update();
+  }
+
+  // -------- EXPORTS: CSV / JSON / Report --------
+  function download(filename, text){
+    const a = document.createElement('a');
+    const blob = new Blob([text], { type: 'text/plain' });
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  function exportCSV(){
+    if (!project) return;
+    let csv = 'date,progress,costSpent,notes\n';
+    updates.forEach(u => csv += `${u.date},${u.progress},${u.costSpent},"${(u.notes||'').replace(/"/g,'""')}"\n`);
+    download(`${project.name || 'project'}_updates.csv`, csv);
+  }
+
+  function exportJSON(){
+    if (!project) return;
+    const data = { project, updates, generatedAt: (new Date()).toISOString() };
+    download(`${project.name || 'project'}_export.json`, JSON.stringify(data, null, 2));
+  }
+
+  function exportReport(){
+    if (!project) return;
+    const last = updates.length ? updates[updates.length-1] : {progress:0};
+    const forecast = computeForecast();
+    let text = '--- PROJECT PERFORMANCE REPORT ---\n';
+    text += `Project: ${project.name}\nType: ${project.type}\nRegion: ${project.region}\n`;
+    text += `Terrain: ${project.terrain} | Weather: ${project.weather}\nVendor: ${project.vendorReliability}\n`;
+    text += `Planned Cost: ₹${project.plannedCost}L | Planned Duration: ${project.plannedDuration}mo\n\n`;
+    text += `Progress Log:\nDate\tProgress(%)\tCostSpent(₹L)\tNotes\n`;
+    updates.forEach(u => text += `${u.date}\t${u.progress}\t${u.costSpent}\t${u.notes}\n`);
+    text += `\nCurrent: ${last.progress}% complete\n`;
+    text += `Forecast: ₹${forecast.forecastCost}L | ${forecast.forecastDuration} months\n`;
+    text += `Variance: Cost ${forecast.deltaCost}L | Time ${forecast.deltaTime}mo\n`;
+    text += `Confidence: ${forecast.confidence}%\n`;
+    text += `Generated: ${(new Date()).toLocaleString()}\n`;
+    document.getElementById('report-output').innerText = text;
+    document.getElementById('report-output').classList.remove('hidden');
+  }
+
+  // -------- Additional UI helpers --------
+  document.addEventListener('DOMContentLoaded', ()=>{
+    loadState();
+    displayStats();
+    renderUpdateTable();
+    initCharts();
+    // loadPortfolio removed
+    });
+
+  // Buttons for export/clear
+  const btnExport = document.querySelector('button.secondary');
+  if (btnExport) btnExport.addEventListener('click', exportReport);
+  const btnPDF = document.getElementById('btnExportPDF');
+  if (btnPDF) btnPDF.addEventListener('click', exportPDF);
+
+  // Add small control buttons
+  const controls = document.createElement('div');
+  controls.classList.add('controls-group');
+  controls.innerHTML = `
+    <button id="btnExportCSV" type="button">Export CSV</button>
+    <button id="btnExportJSON" type="button">Export JSON</button>
+    <button id="btnLoad" type="button">Load Last Project</button>
+    <button id="btnClear" type="button" class="secondary">Clear Saved</button>
+  `;
+  document.querySelector('section:nth-of-type(3)').appendChild(controls);
+  document.getElementById('btnExportCSV').addEventListener('click', exportCSV);
+  document.getElementById('btnExportJSON').addEventListener('click', exportJSON);
+  document.getElementById('btnLoad').addEventListener('click', ()=>{ loadState(); displayStats(); renderUpdateTable(); alert('Loaded last saved project (if any).'); });
+  document.getElementById('btnClear').addEventListener('click', ()=>{ if(confirm('Clear saved project and updates?')){ localStorage.removeItem(LS_KEY_PROJECT); localStorage.removeItem(LS_KEY_UPDATES); project=null; updates=[]; displayStats(); renderUpdateTable(); document.getElementById('update-form').classList.add('hidden'); document.getElementById('report-output').classList.add('hidden'); alert('Cleared.'); } });
+
+  // Product portfolio removed
+
+  // -------- Reporting & Analytics JS --------
+  let analyticsProgressChart = null;
+  let analyticsRevenueChart = null;
+  let costMgmtChart = null;
+  let npsChart = null;
+
+  function initAnalyticsCharts(){
+    // Guarded creation: only create charts if their canvas elements exist
+    const pEl = document.getElementById('analyticsProgress');
+    if (pEl && pEl.getContext){
+      const pCtx = pEl.getContext('2d');
+      if (!analyticsProgressChart) analyticsProgressChart = new Chart(pCtx, { type:'line', data:{ labels:[], datasets:[ { label:'Actual %', data:[], borderColor:'#EF4A2A', fill:false }, { label:'Forecast %', data:[], borderColor:'#2E6FAC', borderDash:[6,4], fill:false } ]}, options:{ responsive:true, maintainAspectRatio:false } });
+    }
+
+    const rEl = document.getElementById('analyticsRevenue');
+    if (rEl && rEl.getContext){
+      const rCtx = rEl.getContext('2d');
+      if (!analyticsRevenueChart) analyticsRevenueChart = new Chart(rCtx, { type:'line', data:{ labels:[], datasets:[ { label:'Cumulative Billed', data:[], borderColor:'#2E6FAC', fill:false }, { label:'Cumulative Recognized', data:[], borderColor:'#119c4a', fill:false } ]}, options:{ responsive:true, maintainAspectRatio:false } });
+    }
+
+    // Cost Management chart (bar: Budget vs Actual)
+    const cEl = document.getElementById('costMgmtChart');
+    if (cEl && cEl.getContext){
+      const cCtx = cEl.getContext('2d');
+      if (!costMgmtChart) costMgmtChart = new Chart(cCtx, { type:'bar', data:{ labels:['Budget (L)','Actual (L)'], datasets:[ { label:'Amount (L)', data:[0,0], backgroundColor:['#2E6FAC','#b20d1e'] } ] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } } } });
+    }
+
+    // NPS chart (Detractors / Passives / Promoters)
+    const nEl = document.getElementById('npsChart');
+    if (nEl && nEl.getContext){
+      const nCtx = nEl.getContext('2d');
+      if (!npsChart) npsChart = new Chart(nCtx, { type:'bar', data:{ labels:['Detractors','Passives','Promoters'], datasets:[ { label:'Count', data:[0,0,0], backgroundColor:['#e74c3c','#f1c40f','#2ecc71'] } ] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } } } });
+    }
+
+    // analyticsUtilChart removed
+  }
+
+  function renderAnalytics(){
+    // If analytics section is not present, skip
+    if (!document.getElementById('analytics-section')) return;
+    try{
+      // KPIs
+      const kProj = document.getElementById('kpiProject'); if (kProj) kProj.innerText = project ? project.name : '-';
+    const last = updates.length ? updates[updates.length-1] : { progress:0 };
+    document.getElementById('kpiProgress').innerText = last.progress + '%';
+    const forecast = computeForecast() || { confidence: '-' };
+  const kConf = document.getElementById('kpiConfidence'); if (kConf) kConf.innerText = (forecast && typeof forecast.confidence !== 'undefined') ? (forecast.confidence + '%') : '-';
+  // (Utilization removed)
+
+    // Progress chart: actual and simple projection to finish
+    if (!analyticsProgressChart) initAnalyticsCharts();
+    const labels = updates.map(u=>u.date);
+    if (analyticsProgressChart){
+      analyticsProgressChart.data.labels = labels.length ? labels : ['No data'];
+      analyticsProgressChart.data.datasets[0].data = updates.map(u=>u.progress);
+    }
+    // build forecast series: repeat last progress and final 100 at forecast duration end
+    const forecastSeries = [];
+    if (updates.length){
+      const lastP = updates[updates.length-1].progress;
+      const f = computeForecast();
+      const steps = Math.max(1, f.forecastDuration);
+      for (let i=0;i<steps;i++) forecastSeries.push(Math.round(lastP + (i+1)*(100-lastP)/steps));
+    }
+    if (analyticsProgressChart){
+      analyticsProgressChart.data.datasets[1].data = labels.length ? new Array(labels.length-1).fill(null).concat(forecastSeries.slice(0, Math.max(1, forecastSeries.length))) : forecastSeries;
+      try{ analyticsProgressChart.update(); } catch(e){ console.warn('progress chart update failed', e); }
+    }
+
+    // Revenue chart reuse renderRev logic for labels and cumulative
+    if (!analyticsRevenueChart) initAnalyticsCharts();
+    const revSorted = [...revEntries].sort((a,b)=> new Date(a.date)-new Date(b.date));
+    let cumB=0, cumR=0; const rLabels = [], rB=[], rR=[];
+    revSorted.forEach(e=>{ rLabels.push(e.date); if(e.type==='billed') cumB += e.amount; if(e.type==='recognized') cumR += e.amount; rB.push(cumB); rR.push(cumR); });
+    if (analyticsRevenueChart){
+      analyticsRevenueChart.data.labels = rLabels; analyticsRevenueChart.data.datasets[0].data = rB; analyticsRevenueChart.data.datasets[1].data = rR;
+      try{ analyticsRevenueChart.update(); } catch(e){ console.warn('revenue chart update failed', e); }
+    }
+
+    // Cost management KPIs and chart
+    try{
+      const metrics = computeCostMetrics();
+      const elBudget = document.getElementById('costBudget'); if (elBudget) elBudget.innerText = metrics.budget;
+      const elActual = document.getElementById('costActual'); if (elActual) elActual.innerText = metrics.actual;
+      const elCPI = document.getElementById('costCPI'); if (elCPI) elCPI.innerText = isFinite(metrics.cpi) ? metrics.cpi.toFixed(2) : '-';
+      const elVar = document.getElementById('costVariance'); if (elVar) elVar.innerText = (metrics.variance >=0 ? '+' : '') + metrics.variance;
+      const elROI = document.getElementById('costROI'); if (elROI) elROI.innerText = isFinite(metrics.roi) ? metrics.roi.toFixed(1) + '%' : '-';
+      const elUtil = document.getElementById('costUtil'); if (elUtil) elUtil.innerText = isFinite(metrics.util) ? metrics.util.toFixed(0) + '%' : '-';
+      if (costMgmtChart){
+        costMgmtChart.data.datasets[0].data = [metrics.budget, metrics.actual];
+        try{ costMgmtChart.update(); }catch(e){ console.warn('costMgmtChart update failed', e); }
+      }
+    }catch(e){ console.warn('cost metrics failed', e); }
+
+    // Time-tracking metrics
+    try{
+      const tmetrics = computeTimeMetrics();
+      const tm = document.getElementById('timeMetricsSummary');
+      if (tm){
+        tm.innerHTML = `
+          <div><strong>Actual vs Estimated Time:</strong> ${tmetrics.actual}h / ${tmetrics.estimated}h</div>
+          <div><strong>Task Completion Rate:</strong> ${tmetrics.completionRate}% (${tmetrics.completed}/${tmetrics.total} tasks)</div>
+          <div><strong>Avg Time / Task:</strong> ${tmetrics.avgPerTask.toFixed(2)}h</div>
+          <div><strong>Milestones Achieved:</strong> ${tmetrics.milestonesAchieved} / ${tmetrics.totalMilestones}</div>
+          <div><strong>On-time Delivery Rate:</strong> ${tmetrics.onTimeRate}%</div>
+        `;
+      }
+    }catch(e){ console.warn('time metrics failed', e); }
+
+    // Stakeholder metrics
+    try{
+      const sm = computeStakeholderMetrics();
+      const elCSAT = document.getElementById('kpCSAT'); if (elCSAT) elCSAT.innerText = sm.csatAvg || '-';
+      const elNPS = document.getElementById('kpNPS'); if (elNPS) elNPS.innerText = (typeof sm.npsScore !== 'undefined') ? (sm.npsScore + ' (NPS)') : '-';
+      const elEng = document.getElementById('kpEngage'); if (elEng) elEng.innerText = sm.engaged + '%';
+      if (npsChart){ npsChart.data.datasets[0].data = [sm.detr, sm.pass, sm.prom]; try{ npsChart.update(); }catch(e){} }
+      // show promoter/detractor percentages as small badges near KPIs (optional)
+      const pctInfo = document.getElementById('kpNPS'); if (pctInfo && sm.promPct !== undefined && sm.detrPct !== undefined){ pctInfo.title = `Promoters ${sm.promPct}% • Detractors ${sm.detrPct}%`; }
+    }catch(e){ console.warn('stakeholder metrics failed', e); }
+
+    // Resource utilization visuals removed
+
+    // Recent updates list
+    const updatesEl = document.getElementById('analyticsUpdates'); if (updatesEl){ updatesEl.innerHTML = ''; updates.slice().reverse().slice(0,10).forEach(u=>{ const d = document.createElement('div'); d.innerText = `${u.date} — ${u.progress}% — ₹${u.costSpent}L — ${u.notes||''}`; updatesEl.appendChild(d); }); }
+  } catch(err){ console.error('renderAnalytics error', err); }
+  }
+
+  // Hook analytics to common update points
+  const origDisplayStats = displayStats;
+  displayStats = function(){ origDisplayStats(); try{ renderAnalytics(); }catch(e){ console.warn('analytics render failed', e); } };
+
+  if (typeof renderRev === 'function'){
+    const _origRenderRev = renderRev;
+    renderRev = function(){ _origRenderRev(); try{ renderAnalytics(); }catch(e){} };
+  } else {
+    renderRev = function(){ try{ renderAnalytics(); }catch(e){} };
+  }
+
+  // call init on DOM ready (defensive)
+  document.addEventListener('DOMContentLoaded', ()=>{
+    try{
+      initAnalyticsCharts();
+      renderAnalytics();
+    } catch (err){
+      console.error('Analytics init failed:', err);
+    }
+  });
+
+  // quick save on page hide
+  window.addEventListener('beforeunload', saveState);
+
+  // For debugging: expose computeForecast
+  window.computeForecast = computeForecast;
+
+  // -------- Stakeholder Metrics JS --------
+  const LS_CUST = 'pg_customers_v1';
+  const LS_FB = 'pg_feedback_v1';
+  let customers = [];
+  let feedbacks = [];
+
+  function saveCustomers(){ localStorage.setItem(LS_CUST, JSON.stringify(customers)); }
+  function loadCustomers(){ const c = localStorage.getItem(LS_CUST); if (c) customers = JSON.parse(c); renderCustomerSelects(); }
+  function renderCustomerSelects(){ const sel = document.getElementById('fbCustomer'); if (!sel) return; sel.innerHTML = '<option value="">--Select customer--</option>'; customers.forEach((c,i)=>{ const o = document.createElement('option'); o.value = i; o.innerText = c.name + ' ('+ (c.segment||'') +')'; sel.appendChild(o); }); }
+  function addCustomer(){ const name = document.getElementById('custName').value.trim(); const seg = document.getElementById('custSeg').value; if(!name) return alert('Enter customer name'); customers.push({ name, segment: seg, createdAt: (new Date()).toISOString() }); saveCustomers(); renderCustomerSelects(); document.getElementById('custName').value=''; showNotification('Customer added', name, { type:'success' }); }
+
+  function saveFeedback(){ localStorage.setItem(LS_FB, JSON.stringify(feedbacks)); }
+  function loadFeedback(){ const f = localStorage.getItem(LS_FB); if (f) feedbacks = JSON.parse(f); }
+  function submitFeedback(){
+    const idx = document.getElementById('fbCustomer').value; if (idx==='') return alert('Select customer');
+    const csat = Number(document.getElementById('fbCSAT').value)||0;
+    let nps = Number(document.getElementById('fbNPS').value);
+    if (isNaN(nps) || nps < 0 || nps > 10) return alert('NPS must be 0-10');
+    const cust = customers[Number(idx)];
+    const entry = { customer: cust.name, segment: cust.segment, csat, nps, date: (new Date()).toISOString() };
+    feedbacks.push(entry); saveFeedback(); showNotification('Feedback recorded', `${cust.name} — CSAT ${csat}, NPS ${nps}`, { type:'success' }); renderAnalytics();
+  }
+
+  function computeStakeholderMetrics(){
+    const totalFB = feedbacks.length || 0;
+    const csatAvg = totalFB ? (feedbacks.reduce((a,b)=>a + (b.csat||0),0)/totalFB) : 0;
+    // Classic NPS: 0-6 Detractors, 7-8 Passives, 9-10 Promoters
+    const detrCount = feedbacks.filter(f => f.nps >= 0 && f.nps <= 6).length;
+    const passCount = feedbacks.filter(f => f.nps >= 7 && f.nps <= 8).length;
+    const promCount = feedbacks.filter(f => f.nps >= 9 && f.nps <= 10).length;
+    const detrPct = totalFB ? Math.round((detrCount / totalFB) * 100) : 0;
+    const promPct = totalFB ? Math.round((promCount / totalFB) * 100) : 0;
+    const npsScore = promPct - detrPct; // classic NPS
+    const engaged = customers.length ? Math.round((new Set(feedbacks.map(f=>f.customer)).size / customers.length)*100) : 0;
+    const retention = customers.length ? 100 : 0; // placeholder until churn data available
+    const totalRev = revEntries.reduce((a,b)=>a + (Number(b.amount)||0), 0);
+    const clv = customers.length ? Math.round((totalRev / customers.length)*100)/100 : 0;
+    return { csatAvg: Math.round(csatAvg*100)/100, npsScore, npsAvg: totalFB ? (feedbacks.reduce((a,b)=>a + (b.nps||0),0)/totalFB) : 0, engaged, retention, clv, detr: detrCount, pass: passCount, prom: promCount, detrPct, promPct };
+  }
+
+  // Hook in customer and feedback buttons
+  document.addEventListener('DOMContentLoaded', ()=>{ document.getElementById('addCustomer').addEventListener('click', addCustomer); document.getElementById('submitFeedback').addEventListener('click', submitFeedback); loadCustomers(); loadFeedback(); });
+
+  // -------- Resource Allocation JS --------
+  const LS_MEMBERS = 'pg_members_v1';
+  const LS_TASKS = 'pg_tasks_v1';
+
+  let members = [];
+  let tasks = [];
+  const LS_TIME = 'pg_time_logs_v1';
+  let timeLogs = [];
+
+  // (computeUtilization removed)
+
+  function saveRA(){
+    localStorage.setItem(LS_MEMBERS, JSON.stringify(members));
+    localStorage.setItem(LS_TASKS, JSON.stringify(tasks));
+  }
+
+  function loadRA(){
+    const m = localStorage.getItem(LS_MEMBERS);
+    const t = localStorage.getItem(LS_TASKS);
+    if (m) members = JSON.parse(m);
+    if (t) tasks = JSON.parse(t);
+    renderMembers();
+    renderTasks();
+    renderAssignments();
+  }
+
+  function renderMembers(){
+    const ul = document.getElementById('memberList');
+    ul.innerHTML = '';
+    members.forEach((mem, idx) => {
+      const li = document.createElement('li');
+      li.innerText = `${mem.name} (cap: ${mem.capacity})`;
+      const remove = document.createElement('button');
+  remove.innerText = 'x'; remove.classList.add('ml-8');
+      remove.onclick = ()=>{ members.splice(idx,1); saveRA(); renderMembers(); renderAssignments(); };
+      li.appendChild(remove);
+      ul.appendChild(li);
+    });
+  }
+
+  function renderTasks(){
+    const ul = document.getElementById('taskList');
+    ul.innerHTML = '';
+    tasks.forEach((tsk, idx) => {
+      const li = document.createElement('li');
+      li.innerText = `${tsk.name} [${tsk.priority}] — Est: ${tsk.estimate || 0}h`;
+      const remove = document.createElement('button');
+  remove.innerText = 'x'; remove.classList.add('ml-8');
+      remove.onclick = ()=>{ tasks.splice(idx,1); saveRA(); renderTasks(); renderAssignments(); };
+      li.appendChild(remove);
+      ul.appendChild(li);
+    });
+    // populate task selector for time logging
+    const sel = document.getElementById('timeTaskSelect'); if (sel){ sel.innerHTML = '<option value="">-- Select task --</option>'; tasks.forEach((t,i)=>{ const o = document.createElement('option'); o.value = i; o.innerText = `${t.name} (${t.estimate||0}h)`; sel.appendChild(o); }); }
+  }
+
+  function renderAssignments(){
+    const tbody = document.querySelector('#assignTable tbody');
+    tbody.innerHTML = '';
+    tasks.forEach(t => {
+      const tr = document.createElement('tr');
+      const td1 = document.createElement('td'); td1.innerText = t.name;
+      const td2 = document.createElement('td'); td2.innerText = t.priority;
+      const td3 = document.createElement('td'); td3.innerText = t.assignedTo || '-';
+      tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
+      tbody.appendChild(tr);
+    });
+  }
+
+  function addMember(name, cap){
+    if (!name) return alert('Enter member name');
+    members.push({ name, capacity: Math.max(1, parseInt(cap) || 1), assigned: 0 });
+    saveRA(); renderMembers();
+  }
+
+  function addTask(name, priority){
+    if (!name) return alert('Enter task name');
+    const est = Number(document.getElementById('taskEst') ? document.getElementById('taskEst').value : 0) || 0;
+    tasks.push({ name, priority, assignedTo: null, estimate: est, completed: false });
+    saveRA(); renderTasks(); renderAssignments();
+  }
+
+  // Time logging
+  function saveTime(){ localStorage.setItem(LS_TIME, JSON.stringify(timeLogs)); }
+  function loadTime(){ const t = localStorage.getItem(LS_TIME); if (t) timeLogs = JSON.parse(t); renderTimeLogs(); }
+
+  function renderTimeLogs(){
+    const el = document.getElementById('timeLogList'); if (!el) return;
+    el.innerHTML = '';
+    timeLogs.slice().reverse().forEach(log => {
+      const d = document.createElement('div'); d.innerText = `${log.date} — ${log.taskName} — ${log.hours}h — ${log.note||''}`;
+      el.appendChild(d);
+    });
+  }
+
+  function logTime(){
+    const sel = document.getElementById('timeTaskSelect'); const idx = sel ? sel.value : null;
+    const hours = Number(document.getElementById('timeHours').value) || 0;
+    const date = document.getElementById('timeDate').value || (new Date()).toISOString().slice(0,10);
+    const note = document.getElementById('timeNote').value || '';
+    if (idx === null || idx === '') return alert('Select a task');
+    if (!hours) return alert('Enter hours');
+    const t = tasks[idx];
+    const entry = { taskName: t.name, taskIdx: Number(idx), hours, date, note };
+    timeLogs.push(entry); saveTime(); renderTimeLogs();
+    // mark task completed if hours exceed estimate (optional)
+    if (t.estimate && t.estimate > 0 && timeLogs.filter(l=>l.taskIdx===Number(idx)).reduce((a,b)=>a+b.hours,0) >= t.estimate){ t.completed = true; saveRA(); renderTasks(); renderAssignments(); }
+    // clear inputs
+    document.getElementById('timeHours').value=''; document.getElementById('timeDate').value=''; document.getElementById('timeNote').value='';
+    showNotification('Time Logged', `${hours}h on ${t.name}`, { type: 'success' });
+  }
+
+  document.getElementById('logTimeBtn').addEventListener('click', logTime);
+  document.addEventListener('DOMContentLoaded', loadTime);
+
+  function clearAssignments(){
+    tasks.forEach(t=> t.assignedTo = null);
+    members.forEach(m=> m.assigned = 0);
+    saveRA(); renderAssignments(); renderMembers();
+  }
+
+  // simple round-robin assignment respecting capacity and prioritizing high priority tasks
+  function autoAssign(){
+    // reset counters
+    members.forEach(m=> m.assigned = 0);
+    // sort tasks by priority high->low
+    const order = { high: 0, med: 1, low: 2 };
+    const sorted = [...tasks].sort((a,b)=> order[a.priority] - order[b.priority]);
+    // candidate members rotate
+    let idx = 0;
+    sorted.forEach(task => {
+      // find next available member with capacity
+      let tries = 0;
+      let assigned = false;
+      while(tries < members.length){
+        const mem = members[idx % members.length];
+        if (mem && mem.assigned < mem.capacity){
+          task.assignedTo = mem.name;
+          mem.assigned++;
+          assigned = true;
+          idx = (idx + 1) % Math.max(1, members.length);
+          break;
+        }
+        idx = (idx + 1) % Math.max(1, members.length);
+        tries++;
+      }
+      if (!assigned) task.assignedTo = null; // unassigned
+    });
+    // Persist and render
+    saveRA(); renderAssignments(); renderMembers();
+  }
+
+  // Wire up buttons
+  document.getElementById('addMember').addEventListener('click', ()=>{ addMember(document.getElementById('memberName').value.trim(), document.getElementById('memberCap').value); document.getElementById('memberName').value=''; document.getElementById('memberCap').value=''; });
+  document.getElementById('addTask').addEventListener('click', ()=>{ addTask(document.getElementById('taskName').value.trim(), document.getElementById('taskPriority').value); document.getElementById('taskName').value=''; if(document.getElementById('taskEst')) document.getElementById('taskEst').value=''; });
+  document.getElementById('autoAssign').addEventListener('click', ()=>{ if (!members.length) return alert('Add team members first'); if (!tasks.length) return alert('Add tasks first'); autoAssign(); });
+  document.getElementById('clearAssignments').addEventListener('click', ()=>{ if (confirm('Clear assignments?')) clearAssignments(); });
+
+  // load RA on DOM ready
+  document.addEventListener('DOMContentLoaded', loadRA);
+
+  // -------- Revenue Recognition JS --------
+  const LS_REV = 'pg_rev_v1';
+  let revEntries = [];
+  let revChart = null;
+
+  function saveRev(){ localStorage.setItem(LS_REV, JSON.stringify(revEntries)); }
+  function loadRev(){ const r = localStorage.getItem(LS_REV); if (r) revEntries = JSON.parse(r); renderRev(); }
+
+  function addRevenueEntry(){
+    const date = document.getElementById('revDate').value || (new Date()).toISOString().slice(0,10);
+    const amount = parseFloat(document.getElementById('revAmount').value) || 0;
+    const type = document.getElementById('revType').value || 'billed';
+    if (!amount) return alert('Enter an amount');
+    revEntries.push({ date, amount, type });
+    saveRev(); renderRev();
+    document.getElementById('revDate').value=''; document.getElementById('revAmount').value='';
+  }
+
+  function renderRev(){
+    // summary
+    const totalBilled = revEntries.filter(e=>e.type==='billed').reduce((a,b)=>a+b.amount,0);
+    const totalRecognized = revEntries.filter(e=>e.type==='recognized').reduce((a,b)=>a+b.amount,0);
+    const remaining = Math.max(0, totalBilled - totalRecognized);
+    document.getElementById('revSummary').innerHTML = `<span><strong>Billed:</strong> ₹${totalBilled}L</span> <span><strong>Recognized:</strong> ₹${totalRecognized}L</span> <span><strong>Remaining:</strong> ₹${remaining}L</span>`;
+
+    // table
+    const tbody = document.querySelector('#revTable tbody'); tbody.innerHTML = '';
+    revEntries.forEach((e, idx) => {
+      const tr = document.createElement('tr');
+      const d1 = document.createElement('td'); d1.innerText = e.date;
+      const d2 = document.createElement('td'); d2.innerText = e.amount;
+      const d3 = document.createElement('td'); d3.innerText = e.type;
+      const d4 = document.createElement('td');
+      const rm = document.createElement('button'); rm.innerText='x'; rm.onclick = ()=>{ revEntries.splice(idx,1); saveRev(); renderRev(); };
+      d4.appendChild(rm);
+      tr.appendChild(d1); tr.appendChild(d2); tr.appendChild(d3); tr.appendChild(d4);
+      tbody.appendChild(tr);
+    });
+
+    // chart: cumulative recognized vs billed over time (monthly or by entry order)
+    const ctx = document.getElementById('revChart').getContext('2d');
+    // Build sorted dates
+    const sorted = [...revEntries].sort((a,b)=> new Date(a.date) - new Date(b.date));
+    const labels = sorted.map(e=>e.date);
+    let cumB = 0, cumR = 0;
+    const dataB = [], dataR = [];
+    sorted.forEach(e=>{ if(e.type==='billed') cumB += e.amount; if(e.type==='recognized') cumR += e.amount; dataB.push(cumB); dataR.push(cumR); });
+    if (!revChart){
+      revChart = new Chart(ctx, { type:'line', data:{ labels, datasets:[ { label:'Cumulative Billed (L)', data:dataB, borderColor:'#2E6FAC', fill:false }, { label:'Cumulative Recognized (L)', data:dataR, borderColor:'#119c4a', fill:false } ] }, options:{ responsive:true, maintainAspectRatio:false } });
+    } else {
+      revChart.data.labels = labels; revChart.data.datasets[0].data = dataB; revChart.data.datasets[1].data = dataR; revChart.update();
+    }
+  }
+
+  function exportRevCSV(){
+    if (!revEntries.length) return alert('No revenue entries');
+    let csv = 'date,amount,type\n'; revEntries.forEach(e=> csv += `${e.date},${e.amount},${e.type}\n`);
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type:'text/csv' })); a.download = 'revenue_entries.csv'; document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  document.getElementById('addRevenue').addEventListener('click', addRevenueEntry);
+  document.getElementById('exportRevCSV').addEventListener('click', exportRevCSV);
+  document.addEventListener('DOMContentLoaded', loadRev);
+
+  // -------- Cost Metrics Computation --------
+  function computeCostMetrics(){
+    // budget = plannedCost (L)
+    const budget = project ? Number(project.plannedCost || 0) : 0;
+    // actual = sum of costSpent in updates
+    const actual = updates.reduce((s,u)=> s + (Number(u.costSpent) || 0), 0);
+    const variance = Math.round((actual - budget) * 100)/100; // L
+
+    // CPI ~= BCWP / ACWP. Approximate BCWP as (%complete/100 * budget) and ACWP as actual
+    const last = updates.length ? updates[updates.length-1] : { progress: 0 };
+    const bcwp = (Number(last.progress) || 0) / 100 * budget;
+    const acwp = actual || 0.0001; // avoid div0
+    const cpi = bcwp / acwp;
+
+    // ROI = (recognized revenue - actual) / actual * 100
+    const recognized = revEntries.filter(r=>r.type==='recognized').reduce((a,b)=>a + (Number(b.amount)||0), 0);
+    const roi = acwp > 0 ? ((recognized - actual) / acwp) * 100 : NaN;
+
+    // Resource utilization: simple percent of assigned capacity vs total capacity
+    let util = 0;
+    try{
+      const totalCap = members.reduce((a,b)=> a + (Number(b.capacity)||0), 0) || 0;
+      const assignedCount = tasks.filter(t=>t.assignedTo).length;
+      // assignedCount as percent of totalCap (rough)
+      util = totalCap > 0 ? Math.min(100, Math.round((assignedCount / totalCap) * 100)) : 0;
+    }catch(e){ util = 0; }
+
+    return { budget: Math.round(budget*100)/100, actual: Math.round(actual*100)/100, variance: Math.round(variance*100)/100, cpi, roi, util };
+  }
+
+  // -------- Time Tracking Metrics --------
+  function computeTimeMetrics(){
+    // total estimated hours from tasks
+    const estimated = tasks.reduce((a,b)=> a + (Number(b.estimate)||0), 0);
+    // actual hours from timeLogs
+    const actual = timeLogs.reduce((a,b)=> a + (Number(b.hours)||0), 0);
+    // task completion rate
+    const total = tasks.length || 0;
+    const completed = tasks.filter(t=>t.completed).length;
+    const completionRate = total ? Math.round((completed/total)*100) : 0;
+    // avg time per task (actual / total tasks)
+    const avgPerTask = total ? (actual / total) : 0;
+    // milestones achieved
+    const totalMilestones = milestones.length || 0;
+    const milestonesAchieved = milestones.filter(m=>m.done).length;
+    // on-time delivery: percent of milestones completed on or before due date
+    let onTime = 0;
+    try{
+      const completedMilestones = milestones.filter(m=>m.done);
+      let ontimeCount = 0;
+      completedMilestones.forEach(m=>{
+        // assume we don't track completion date per milestone; use timeLogs approximate completion: if any time logged for tasks associated around the milestone date
+        // Since we don't have per-milestone completion timestamps, fall back to mark all completed as on-time
+        ontimeCount++;
+      });
+      onTime = totalMilestones ? Math.round((ontimeCount/totalMilestones)*100) : 0;
+    }catch(e){ onTime = 0; }
+
+    return { estimated: Math.round(estimated*100)/100, actual: Math.round(actual*100)/100, total, completed, completionRate, avgPerTask, totalMilestones, milestonesAchieved, onTimeRate: onTime };
+  }
+  
+  // -------- Notification System --------
+  function showNotification(title, message, opts = {}){
+    try{
+      const area = document.getElementById('notification-area');
+      if (!area) return;
+      const n = document.createElement('div'); n.className = 'notify';
+      if (opts.type === 'critical') n.classList.add('critical');
+      if (opts.type === 'success') n.classList.add('success');
+      const close = document.createElement('button'); close.innerText = '×'; close.title = 'Dismiss'; close.onclick = ()=>{ n.remove(); };
+      n.appendChild(close);
+      const h = document.createElement('div'); h.innerHTML = `<strong>${title}</strong>`;
+      const p = document.createElement('div'); p.innerText = message;
+      n.appendChild(h); n.appendChild(p);
+      if (opts.sub) { const s = document.createElement('small'); s.innerText = opts.sub; n.appendChild(s); }
+      area.appendChild(n);
+      // auto-dismiss if duration provided (default 8s)
+      const dur = typeof opts.duration === 'number' ? opts.duration : 8000;
+      if (dur > 0) setTimeout(()=>{ try{ n.remove(); }catch(e){} }, dur);
+    }catch(e){ console.warn('showNotification failed', e); }
+  }
+
+  // Check for upcoming milestone deadlines within N days
+  function checkUpcomingDeadlines(days = 7){
+    if (!milestones || !milestones.length) return;
+    const now = new Date();
+    const soon = milestones.filter(m => !m.done).map(m => ({ ...m, dueDate: new Date(m.due + 'T00:00:00') })).filter(m => m.dueDate >= now && ((m.dueDate - now)/(1000*60*60*24)) <= days );
+    if (soon.length){
+      showNotification('Upcoming Milestone(s)', `${soon.length} milestone(s) due within ${days} day(s).`, { type: 'critical', sub: soon.map(s=>`${s.name} — ${s.due}`).slice(0,3).join('; ') });
+    }
+  }
+
+  // Check for unassigned tasks
+  function checkUnassignedTasks(){
+    if (!tasks) return;
+    const unassigned = tasks.filter(t => !t.assignedTo);
+    if (unassigned.length){
+      showNotification('Unassigned Tasks', `${unassigned.length} task(s) are unassigned. Run Auto-Assign or assign manually.`, { type: 'critical', sub: unassigned.map(u=>u.name).slice(0,4).join('; ') });
+    }
+  }
+
+  // Run lightweight checks on load and after relevant actions
+  document.addEventListener('DOMContentLoaded', ()=>{
+    // small timeout so UI loads first
+    setTimeout(()=>{
+      try{ checkUpcomingDeadlines(14); checkUnassignedTasks(); }catch(e){}
+    }, 600);
+  });
+
+  // Hook into addTask and addMilestone functions to show notifications
+  const origAddTask = addTask;
+  addTask = function(name, priority){ origAddTask(name, priority); showNotification('Task Added', `Task "${name}" added.`, { type: 'success' }); setTimeout(checkUnassignedTasks, 200); };
+
+  const origAddMilestone = addMilestone;
+  addMilestone = function(){ const before = document.getElementById('msName').value.trim(); origAddMilestone(); showNotification('Milestone Created', `${before || 'Milestone'} added.`, { type: 'success' }); setTimeout(()=>checkUpcomingDeadlines(30), 200); };
+
+  // After autoAssign, notify about remaining unassigned
+  const origAutoAssign = autoAssign;
+  autoAssign = function(){ origAutoAssign(); const rem = tasks.filter(t=>!t.assignedTo).length; if (rem>0) showNotification('Auto-Assign Result', `${rem} task(s) remain unassigned.`, { type: 'critical' }); else showNotification('Auto-Assign Result', 'All tasks assigned.', { type: 'success' }); };
+
+  // Also when state loads, perform checks
+  const origLoadState = loadState;
+  loadState = function(){ origLoadState(); setTimeout(()=>{ try{ checkUpcomingDeadlines(14); checkUnassignedTasks(); }catch(e){} }, 200); };
+</script>
+</body>
+</html>
